@@ -3,6 +3,8 @@ from collections import defaultdict, deque
 
 from fastapi import HTTPException, Request, status
 
+_MAX_KEYS = 10_000
+
 
 class RateLimiter:
     """Sliding-window limiter, in-memory.
@@ -20,6 +22,9 @@ class RateLimiter:
     def hit(self, key: str) -> bool:
         """Record an attempt; return False if the key is over its limit."""
         now = self._clock()
+        if len(self._hits) > _MAX_KEYS:  # bound memory: sweep idle keys
+            for k in [k for k, h in self._hits.items() if not h or now - h[-1] >= self.window]:
+                del self._hits[k]
         hits = self._hits[key]
         while hits and now - hits[0] >= self.window:
             hits.popleft()

@@ -41,7 +41,8 @@ def login(
     payload: UserCredentials, request: Request, response: Response, db: Session = Depends(get_db)
 ):
     enforce(login_ip_limiter, client_ip(request))
-    enforce(login_user_limiter, payload.username.strip().lower())
+    # per (ip, username): one client cannot lock a victim out from everywhere
+    enforce(login_user_limiter, f"{client_ip(request)}|{payload.username.strip().lower()}")
     invalid = HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
     user = db.query(User).filter(User.username == payload.username).one_or_none()
     if user is None or not verify_password(payload.password, user.password_hash):

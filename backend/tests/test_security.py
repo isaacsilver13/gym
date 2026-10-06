@@ -95,6 +95,22 @@ def test_error_messages_are_redacted():
     assert "hunter2" not in out and "abc.def" not in out and "Traceback" not in out
 
 
+def test_redaction_json_and_basic_auth():
+    out = error_log.sanitize_message(
+        """body {"password": "hunter2", 'token': 'abc123'} Authorization: Basic dXNlcjpwYXNz"""
+    )
+    assert "hunter2" not in out and "abc123" not in out and "dXNlcjpwYXNz" not in out
+
+
+def test_login_lockout_is_per_client(client):
+    body = {"username": "alice", "password": "x"}
+    for _ in range(auth_routes.login_user_limiter.limit):
+        client.post("/api/v1/auth/login", json=body)
+    assert client.post("/api/v1/auth/login", json=body).status_code == 429
+    other = client.post("/api/v1/auth/login", json=body, headers={"fly-client-ip": "9.9.9.9"})
+    assert other.status_code == 401
+
+
 def test_health_errors_requires_admin_token(client, monkeypatch):
     error_log._recent_errors.clear()
     handler = error_log.RingBufferHandler(level=logging.ERROR)

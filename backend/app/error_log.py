@@ -15,11 +15,11 @@ _REDACTIONS = [
     (
         re.compile(
             r"(?i)\b(password|passwd|secret|token|api[_-]?key|authorization|cookie|session)"
-            r"\w*\s*[=:]\s*(?:bearer\s+)?[^\s,;&]+"
+            r"\w*[\"']?\s*[=:]\s*[\"']?(?:(?:bearer|basic)\s+)?[^\s,;&\"']+"
         ),
         r"\1=[redacted]",
     ),
-    (re.compile(r"(?i)\bbearer\s+[a-z0-9._~+/=-]+"), "Bearer [redacted]"),
+    (re.compile(r"(?i)\b(bearer|basic)\s+[a-z0-9._~+/=-]+"), r"\1 [redacted]"),
     # query strings may carry secrets
     (re.compile(r"\?\S+"), "?[redacted]"),
     # long opaque tokens
