@@ -17,16 +17,33 @@ def _setting(name: str, default: str) -> str:
     return file_value if file_value is not None else default
 
 
+_DEV_SESSION_SECRET = "dev-only-insecure-secret"
+_MIN_SESSION_SECRET_LENGTH = 32
+
+
 @dataclass(frozen=True)
 class Settings:
     app_env: str
     database_url: str
     session_secret: str
+    admin_token: str
 
 
 def load_settings() -> Settings:
+    app_env = _setting("APP_ENV", "development").strip().lower()
+    session_secret = _setting("SESSION_SECRET", _DEV_SESSION_SECRET)
+    # Fail closed: only an explicit development env may use the known fallback.
+    # Never include the supplied value in the error.
+    if app_env != "development" and (
+        session_secret == _DEV_SESSION_SECRET or len(session_secret) < _MIN_SESSION_SECRET_LENGTH
+    ):
+        raise RuntimeError(
+            f"SESSION_SECRET must be set to a random value of at least "
+            f"{_MIN_SESSION_SECRET_LENGTH} characters when APP_ENV={app_env!r}"
+        )
     return Settings(
-        app_env=_setting("APP_ENV", "development").strip().lower(),
+        app_env=app_env,
         database_url=_setting("DATABASE_URL", _DEFAULT_DATABASE_URL),
-        session_secret=_setting("SESSION_SECRET", "dev-only-insecure-secret"),
+        session_secret=session_secret,
+        admin_token=_setting("ADMIN_TOKEN", ""),
     )

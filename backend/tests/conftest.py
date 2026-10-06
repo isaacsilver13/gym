@@ -34,3 +34,15 @@ def client():
 def auth_client(client):
     client.post("/api/v1/auth/register", json={"username": "alice", "password": "correct-horse"})
     return client
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiters():
+    from app.api import auth as auth_routes
+
+    for limiter in (
+        auth_routes.login_ip_limiter,
+        auth_routes.login_user_limiter,
+        auth_routes.register_limiter,
+    ):
+        limiter._hits.clear()

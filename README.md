@@ -28,7 +28,7 @@ Run tests with `pytest -q`; lint with `ruff check backend`.
 
 ## Environment variables
 
-See `.env.example`. `DATABASE_URL` defaults to a local SQLite file; set it to a Postgres URL (`postgresql+psycopg://...?sslmode=require`) in production. `SESSION_SECRET` must be a real random value outside local dev.
+See `.env.example`. `DATABASE_URL` defaults to a local SQLite file; set it to a Postgres URL (`postgresql+psycopg://...?sslmode=require`) in production. `SESSION_SECRET` must be a random value of 32+ characters outside local dev (the app refuses to start otherwise; set it with `fly secrets set`). Changing it signs everyone out. Login/register are rate limited per client (in-process, so per Fly machine). `/health/errors` requires an `X-Admin-Token` header matching `ADMIN_TOKEN` (disabled when unset).
 
 ## API
 

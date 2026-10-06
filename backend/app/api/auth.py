@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.auth import (
@@ -10,13 +10,21 @@ from app.auth import (
 )
 from app.db import get_db
 from app.models import User
+from app.rate_limit import RateLimiter, client_ip, enforce
 from app.schemas import UserCredentials, UserOut
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+login_ip_limiter = RateLimiter(limit=10, window_seconds=300)
+login_user_limiter = RateLimiter(limit=5, window_seconds=300)
+register_limiter = RateLimiter(limit=5, window_seconds=3600)
+
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def register(payload: UserCredentials, response: Response, db: Session = Depends(get_db)):
+def register(
+    payload: UserCredentials, request: Request, response: Response, db: Session = Depends(get_db)
+):
+    enforce(register_limiter, client_ip(request))
     existing = db.query(User).filter(User.username == payload.username).one_or_none()
     if existing is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, detail="Username already taken")
@@ -29,7 +37,11 @@ def register(payload: UserCredentials, response: Response, db: Session = Depends
 
 
 @router.post("/login", response_model=UserOut)
-def login(payload: UserCredentials, response: Response, db: Session = Depends(get_db)):
+def login(
+    payload: UserCredentials, request: Request, response: Response, db: Session = Depends(get_db)
+):
+    enforce(login_ip_limiter, client_ip(request))
+    enforce(login_user_limiter, payload.username.strip().lower())
     invalid = HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
     user = db.query(User).filter(User.username == payload.username).one_or_none()
     if user is None or not verify_password(payload.password, user.password_hash):
