@@ -103,7 +103,7 @@ def test_redaction_json_and_basic_auth():
 
 
 def test_login_lockout_is_per_client(client):
-    body = {"username": "alice", "password": "x"}
+    body = {"username": "alice", "password": "wrong-password"}
     for _ in range(auth_routes.login_user_limiter.limit):
         client.post("/api/v1/auth/login", json=body)
     assert client.post("/api/v1/auth/login", json=body).status_code == 429
