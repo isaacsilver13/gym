@@ -28,8 +28,15 @@ Run tests with `pytest -q`; lint with `ruff check backend`.
 
 ## Environment variables
 
-See `.env.example`. `DATABASE_URL` defaults to a local SQLite file; set it to a Postgres URL (`postgresql+psycopg://...?sslmode=require`) in production. `SESSION_SECRET` must be a real random value outside local dev.
+See `.env.example`. `DATABASE_URL` defaults to a local SQLite file; set it to a Postgres URL (`postgresql+psycopg://...?sslmode=require`) in production. `SESSION_SECRET` must be a random value of 32+ characters outside local dev (the app refuses to start otherwise; set it with `fly secrets set`). Changing it signs everyone out. Login/register are rate limited per client (in-process, so per Fly machine). `/health/errors` requires an `X-Admin-Token` header matching `ADMIN_TOKEN` (disabled when unset).
 
 ## API
 
 All routes are under `/api/v1`. Auth is a signed httpOnly cookie (`/auth/register`, `/auth/login`, `/auth/logout`, `/auth/me`). Routines: `POST/GET /routines`, `GET/DELETE /routines/{id}`. Logging: `POST /routines/{id}/sessions`, `GET /routines/{id}/sessions`. Progress: `GET /exercises/{id}/progress`. Health: `/health`, `/health/ready`, `/health/metrics`, `/health/errors`.
+
+
+Login/registration limits are process-local and bounded; use shared storage before
+scaling beyond one process. `TRUST_FLY_CLIENT_IP=true` is set only by the Fly
+configuration; it is honored only in production with `FLY_APP_NAME` present and
+assumes all HTTP ingress uses Fly Proxy. Leave it false for direct/self-hosted
+ingress. Arbitrary local forwarding headers never select a limiter bucket.
