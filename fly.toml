@@ -28,3 +28,4 @@ cpu_kind = "shared"
 
 [env]
 APP_ENV = "production"
+TRUST_FLY_CLIENT_IP = "true"
