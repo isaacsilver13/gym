@@ -27,6 +27,8 @@ class Settings:
     database_url: str
     session_secret: str
     admin_token: str
+    assistant_read_token: str = ""
+    assistant_username: str = ""
     trust_fly_client_ip: bool = False
 
 
@@ -47,5 +49,7 @@ def load_settings() -> Settings:
         database_url=_setting("DATABASE_URL", _DEFAULT_DATABASE_URL),
         session_secret=session_secret,
         admin_token=_setting("ADMIN_TOKEN", ""),
+        assistant_read_token=_setting("ASSISTANT_READ_TOKEN", ""),
+        assistant_username=_setting("ASSISTANT_USERNAME", ""),
         trust_fly_client_ip=_setting("TRUST_FLY_CLIENT_IP", "false").lower() == "true",
     )

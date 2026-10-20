@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -96,3 +96,25 @@ class ExerciseProgressPoint(BaseModel):
     logged_at: datetime
     weight_lb: float
     reps_done: int
+
+
+class AssistantGymDayOut(BaseModel):
+    id: int
+    name: str
+
+
+class AssistantExerciseOut(BaseModel):
+    id: int
+    name: str
+    muscle_group: str
+    gym_day: str
+    latest: ExerciseProgressPoint | None
+    best_30d: ExerciseProgressPoint | None
+
+
+class AssistantSummaryOut(BaseModel):
+    username: str
+    routine: RoutineSummary | None
+    next_gym_day: AssistantGymDayOut | None
+    last_session_date: date | None
+    exercises: list[AssistantExerciseOut]

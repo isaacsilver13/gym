@@ -35,6 +35,11 @@ def get_exercise_progress(
     if owns_exercise is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Exercise not found")
 
+    return exercise_progress(db, exercise_definition_id)
+
+
+def exercise_progress(db: Session, exercise_definition_id: int) -> list[ExerciseProgressPoint]:
+    """Every logged result for one exercise, oldest first. Caller checks ownership."""
     rows = (
         db.query(
             LoggedSession.logged_at,
