@@ -121,7 +121,11 @@ def log_session(
 def list_sessions(
     routine_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)
 ):
-    routine = _get_owned_routine(db, user, routine_id)
+    return routine_sessions(db, _get_owned_routine(db, user, routine_id))
+
+
+def routine_sessions(db: Session, routine: Routine) -> list[LoggedSession]:
+    """All sessions logged against a routine, newest first."""
     gym_day_ids = [day.id for day in routine.gym_days]
     return (
         db.query(LoggedSession)

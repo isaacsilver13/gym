@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import auth, exercises, health, routines
+from app.api import assistant, auth, exercises, health, routines
 from app.config import load_settings
 from app.error_log import install as install_error_log
 
@@ -28,6 +28,7 @@ app.include_router(health.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(routines.router, prefix="/api/v1")
 app.include_router(exercises.router, prefix="/api/v1")
+app.include_router(assistant.router, prefix="/api/v1")
 
 # Serves the built frontend from the same app/port as the API, so the two no
 # longer need separate Fly apps (and browser requests to /api/v1 stay same-origin

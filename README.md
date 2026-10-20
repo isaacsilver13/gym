@@ -33,6 +33,7 @@ See `.env.example`. `DATABASE_URL` defaults to a local SQLite file; set it to a 
 ## API
 
 All routes are under `/api/v1`. Auth is a signed httpOnly cookie (`/auth/register`, `/auth/login`, `/auth/logout`, `/auth/me`). Routines: `POST/GET /routines`, `GET/DELETE /routines/{id}`. Logging: `POST /routines/{id}/sessions`, `GET /routines/{id}/sessions`. Progress: `GET /exercises/{id}/progress`. Health: `/health`, `/health/ready`, `/health/metrics`, `/health/errors`.
+Assistant: `GET /assistant/summary` returns one user's current routine, next gym day, and latest / best-in-30-days set per exercise; it takes an `X-Assistant-Token` header instead of a cookie and returns 404 unless `ASSISTANT_READ_TOKEN` and `ASSISTANT_USERNAME` are set.
 
 
 Login/registration limits are process-local and bounded; use shared storage before
