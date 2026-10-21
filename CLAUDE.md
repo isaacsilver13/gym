@@ -10,7 +10,7 @@ Workout routine builder and progress tracker: define N gym days per week, each w
 
 - Backend: FastAPI + SQLAlchemy 2.0 (sync) + Alembic, bcrypt + signed-cookie sessions (`itsdangerous`). SQLite for local dev, Postgres in production.
 - Frontend: React + Vite + TypeScript, Recharts for progress charts.
-- Deployment: a single Fly.io app (`isilver-gym-tracker-api`) — the backend serves the built frontend as static files (see `FRONTEND_DIST`/catch-all route in `backend/app/main.py`), so API and frontend share one origin/port and there's no nginx or separate `-web` app.
+- Deployment: a single Fly.io app (`aisaac-gym`) — the backend serves the built frontend as static files (see `FRONTEND_DIST`/catch-all route in `backend/app/main.py`), so API and frontend share one origin/port and there's no nginx or separate `-web` app.
 
 ## Commands
 
