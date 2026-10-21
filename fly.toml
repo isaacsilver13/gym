@@ -1,4 +1,4 @@
-app = "isilver-gym-tracker-api"
+app = "aisaac-gym"
 primary_region = "ewr"
 
 [build]
