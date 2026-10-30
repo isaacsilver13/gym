@@ -1,5 +1,8 @@
 # Gym Tracker
 
+The project now includes an **openGym + Endurain training hub** alongside the legacy tracker.
+See [setup, migration, Apple Watch imports, and recovery](docs/training-integration.md).
+
 Workout routine builder and progress tracker: define N gym days per week, each with a fixed exercise list (muscle group, name, sets, rep range), then log weight/reps per session and track progress over time.
 
 ## Stack

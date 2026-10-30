@@ -14,3 +14,9 @@ dist/
 *.tsbuildinfo
 /frontend/vite.config.js
 /frontend/vite.config.d.ts
+
+# Local upstream checkouts, credentials, exports and staging data.
+/runtime/
+/.upstream/
+/deployment/.env
+/deployment/backups/

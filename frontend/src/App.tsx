@@ -5,24 +5,31 @@ import { AuthPage } from "./pages/AuthPage";
 import { RoutineList } from "./pages/RoutineList";
 import { RoutineBuilder } from "./pages/RoutineBuilder";
 import { RoutineDetail } from "./pages/RoutineDetail";
+import { TrainingHub } from "./pages/TrainingHub";
 
-type View = { name: "list" } | { name: "builder" } | { name: "detail"; routineId: number };
+type View = { name: "training" } | { name: "list" } | { name: "builder" } | { name: "detail"; routineId: number };
 
 function Dashboard() {
   const { user, logout } = useAuth();
-  const [view, setView] = useState<View>({ name: "list" });
+  const [view, setView] = useState<View>({ name: "training" });
 
   return (
     <main className="app-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">Gym Tracker</p>
+          <p className="eyebrow">Training Hub</p>
           <h1>Hey, {user?.username}</h1>
         </div>
         <button type="button" className="link-button" onClick={() => void logout()}>
           Sign out
         </button>
       </header>
+
+      <nav className="day-tabs" aria-label="Main navigation">
+        <button type="button" className={view.name === "training" ? "active" : ""} onClick={() => setView({ name: "training" })}>Training overview</button>
+        <button type="button" className={view.name !== "training" ? "active" : ""} onClick={() => setView({ name: "list" })}>Legacy tracker</button>
+      </nav>
+      {view.name === "training" && <TrainingHub />}
 
       {view.name === "list" && (
         <RoutineList
