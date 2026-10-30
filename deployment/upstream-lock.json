@@ -1,0 +1,15 @@
+{
+  "opengym": {
+    "repository": "https://github.com/DuarteSantos8/openGym",
+    "tag": "v1.4.3",
+    "commit": "7c8290ca20cb619bf6baa6830ea864d283df305a",
+    "api_image_digest": "sha256:21d1fde39470d9c91424db51be64f5dd57c75b0b493345016f1d6e268dceae16",
+    "web_image_digest": "sha256:e77ef879d10549acc88a888e0cd4d566592c5680bee6436b05071678fcf8b512"
+  },
+  "endurain": {
+    "repository": "https://github.com/endurain-project/endurain",
+    "tag": "v0.20.2",
+    "commit": "712b04ddbcb269109f72661637636251e396b3a5",
+    "image_digest": "sha256:045af8835f82df64203b4e025baa2c603512da9c2e17babd0044533452cc20d6"
+  }
+}

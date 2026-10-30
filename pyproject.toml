@@ -13,6 +13,9 @@ dependencies = [
     "python-dotenv>=1.0,<2.0",
     "bcrypt>=4.2,<5.0",
     "itsdangerous>=2.2,<3.0",
+    "httpx>=0.27,<1.0",
+    "tzdata>=2025.1",
+    "garmin-fit-sdk==21.218.0",
 ]
 
 [project.optional-dependencies]

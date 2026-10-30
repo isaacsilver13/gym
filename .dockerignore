@@ -1,0 +1,13 @@
+.git
+.venv
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+frontend/dist
+runtime
+.upstream
+.env
+**/.env
+deployment/backups
+*.db*

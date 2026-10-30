@@ -1,10 +1,12 @@
 import type {
+  AppleHealthStatus,
   ExerciseProgressPoint,
   LoggedSession,
   Routine,
   RoutineInput,
   RoutineSummary,
   User,
+  TrainingSummary,
 } from "../types";
 
 const BASE = "/api/v1";
@@ -90,4 +92,16 @@ export function listSessions(routineId: number): Promise<LoggedSession[]> {
 
 export function getExerciseProgress(exerciseId: number): Promise<ExerciseProgressPoint[]> {
   return request(`/exercises/${exerciseId}/progress`);
+}
+
+export function getTrainingSummary(anchor?: string): Promise<TrainingSummary> {
+  return request(`/training/summary${anchor ? `?anchor=${encodeURIComponent(anchor)}` : ""}`);
+}
+
+export function getLegacyExport(): Promise<unknown> {
+  return request("/training/legacy-export");
+}
+
+export function getAppleHealthStatus(): Promise<AppleHealthStatus> {
+  return request("/training/apple-health");
 }

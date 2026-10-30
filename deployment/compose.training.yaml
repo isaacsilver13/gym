@@ -1,0 +1,105 @@
+name: aisaac-training-staging
+
+services:
+  hub:
+    image: aisaac-training-hub:local
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    init: true
+    ports: ["127.0.0.1:18080:8000"]
+    environment:
+      APP_ENV: development
+      DATABASE_URL: sqlite:////data/legacy.db
+      SESSION_SECRET: ${HUB_SESSION_SECRET:?Run scripts/init_training.py first}
+      TRAINING_USERNAME: ${TRAINING_USERNAME:-}
+      TRAINING_TIMEZONE: America/Chicago
+      OPENGYM_URL: http://opengym-api:3000
+      OPENGYM_PUBLIC_URL: http://localhost:18081
+      OPENGYM_UID: ${OPENGYM_UID:-}
+      OPENGYM_TOKEN: ${OPENGYM_TOKEN:-}
+      ENDURAIN_URL: http://endurain:8080
+      ENDURAIN_PUBLIC_URL: http://localhost:18082
+      ENDURAIN_USER_ID: ${ENDURAIN_USER_ID:-}
+      ENDURAIN_TOKEN_FILE: ${ENDURAIN_TOKEN_FILE:-/connections/endurain.json}
+      ASSISTANT_READ_TOKEN: ${ASSISTANT_READ_TOKEN:-}
+      ASSISTANT_USERNAME: ${TRAINING_USERNAME:-}
+      APPLE_HEALTH_CONFIG_FILE: ${APPLE_HEALTH_CONFIG_FILE:-}
+      APPLE_HEALTH_QUEUE: /data/apple-health.sqlite
+    volumes:
+      - hub-data:/data
+      - ../runtime/connections:/connections
+    command: ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+    restart: unless-stopped
+
+  opengym-api:
+    image: ghcr.io/duartesantos8/opengym-api:1.4.3@sha256:21d1fde39470d9c91424db51be64f5dd57c75b0b493345016f1d6e268dceae16
+    init: true
+    environment:
+      PORT: "3000"
+      DATA_DIR: /data
+      RP_ID: localhost
+      ORIGIN: http://localhost:18081
+      TRUST_PROXY: "1"
+      FIRST_USER_ADMIN: "1"
+      PASSWORD_LOGIN: "1"
+      ALLOW_GUEST: "0"
+      COACH_DISABLED: "1"
+    volumes: ["opengym-data:/data"]
+    restart: unless-stopped
+
+  opengym-web:
+    image: ghcr.io/duartesantos8/opengym-web:1.4.3@sha256:e77ef879d10549acc88a888e0cd4d566592c5680bee6436b05071678fcf8b512
+    ports: ["127.0.0.1:18081:8080"]
+    environment:
+      BACKEND: opengym-api
+      PORT: "3000"
+      NGINX_PORT: "8080"
+    depends_on: [opengym-api]
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:18@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
+    environment:
+      POSTGRES_DB: endurain
+      POSTGRES_USER: endurain
+      POSTGRES_PASSWORD: ${ENDURAIN_DB_PASSWORD:?Run scripts/init_training.py first}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes: ["endurain-postgres:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U endurain -d endurain"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  endurain:
+    image: ghcr.io/endurain-project/endurain:v0.20.2@sha256:045af8835f82df64203b4e025baa2c603512da9c2e17babd0044533452cc20d6
+    init: true
+    ports: ["127.0.0.1:18082:8080"]
+    environment:
+      ENVIRONMENT: development
+      ENDURAIN_HOST: http://localhost:18082
+      BEHIND_PROXY: "false"
+      TZ: America/Chicago
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: endurain
+      DB_DATABASE: endurain
+      DB_PASSWORD: ${ENDURAIN_DB_PASSWORD}
+      SECRET_KEY: ${ENDURAIN_SECRET_KEY:?Run scripts/init_training.py first}
+      FERNET_KEY: ${ENDURAIN_FERNET_KEY:?Run scripts/init_training.py first}
+    volumes:
+      - endurain-files:/app/backend/data
+      - endurain-logs:/app/backend/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  hub-data:
+  opengym-data:
+  endurain-postgres:
+  endurain-files:
+  endurain-logs:
