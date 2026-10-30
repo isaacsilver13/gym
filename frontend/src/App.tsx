@@ -11,13 +11,14 @@ type View = { name: "training" } | { name: "list" } | { name: "builder" } | { na
 
 function Dashboard() {
   const { user, logout } = useAuth();
-  const [view, setView] = useState<View>({ name: "training" });
+  // Routines stay the landing view; the training overview is opt-in, since only a configured owner has data for it.
+  const [view, setView] = useState<View>({ name: "list" });
 
   return (
     <main className="app-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">Training Hub</p>
+          <p className="eyebrow">{view.name === "training" ? "Training Hub" : "Gym Tracker"}</p>
           <h1>Hey, {user?.username}</h1>
         </div>
         <button type="button" className="link-button" onClick={() => void logout()}>
@@ -27,7 +28,7 @@ function Dashboard() {
 
       <nav className="day-tabs" aria-label="Main navigation">
         <button type="button" className={view.name === "training" ? "active" : ""} onClick={() => setView({ name: "training" })}>Training overview</button>
-        <button type="button" className={view.name !== "training" ? "active" : ""} onClick={() => setView({ name: "list" })}>Legacy tracker</button>
+        <button type="button" className={view.name !== "training" ? "active" : ""} onClick={() => setView({ name: "list" })}>Routines</button>
       </nav>
       {view.name === "training" && <TrainingHub />}
 

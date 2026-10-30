@@ -176,7 +176,7 @@ def test_transient_retry_stable_key_and_changed_export(cfg, workout):
     assert keys[0] == keys[1]
     workout["distance"]["qty"] = 4
     assert enqueue(cfg, prepared(workout)) == {"queued": 0, "duplicates": 1, "changed": 1}
-    assert queue_status(cfg)["changed"] == 1
+    assert queue_status(cfg)["changed"] == 0  # still unsent, so the newer export replaced it
     with pytest.raises(ValueError, match="another account"):
         queue_status(replace(cfg, endurain_user_id="8"))
 
@@ -198,6 +198,79 @@ def test_replaced_export_uses_a_new_idempotency_key(cfg, workout):
         enqueue(cfg, prepared(workout))
         assert work_once(cfg, client, now=200)
     assert keys[0] != keys[1]
+
+
+def row(cfg):
+    with connect(cfg) as db:
+        return dict(db.execute("SELECT * FROM workouts").fetchone())
+
+
+def set_row(cfg, **fields):
+    with connect(cfg) as db:
+        db.execute("UPDATE workouts SET " + ",".join(f"{k}=?" for k in fields),
+                   tuple(fields.values()))
+
+
+def test_changed_export_replaces_a_row_that_has_not_been_sent(cfg, workout):
+    enqueue(cfg, prepared(workout))
+    old = row(cfg)
+    workout["distance"]["qty"] = 4
+    enqueue(cfg, prepared(workout))
+    new = row(cfg)
+    assert (new["digest"], new["fit"]) == prepared(workout)[0][1:]
+    assert new["digest"] != old["digest"] and new["changed"] == 0 and new["state"] == "queued"
+
+
+def test_changed_export_revives_a_failed_row_with_a_fresh_job(cfg, workout):
+    enqueue(cfg, prepared(workout))
+    set_row(cfg, state="failed", error="endurain_ingestion_failed", job_id="old-job", attempts=3)
+    enqueue(cfg, prepared(workout))  # same content: stays failed
+    assert row(cfg)["state"] == "failed"
+    workout["distance"]["qty"] = 4
+    enqueue(cfg, prepared(workout))
+    fresh = row(cfg)
+    assert (fresh["state"], fresh["job_id"], fresh["error"], fresh["attempts"]) == (
+        "queued", None, None, 0)
+
+
+@pytest.mark.parametrize("state", ["completed", "processing"])
+def test_changed_export_after_upload_is_flagged_not_replaced(cfg, workout, state):
+    enqueue(cfg, prepared(workout))
+    set_row(cfg, state=state, job_id="job", fit=None)
+    workout["distance"]["qty"] = 4
+    enqueue(cfg, prepared(workout))
+    kept = row(cfg)
+    assert (kept["state"], kept["changed"], kept["fit"], kept["job_id"]) == (state, 1, None, "job")
+
+
+def test_repeated_conflict_becomes_a_visible_failure(cfg, workout):
+    enqueue(cfg, prepared(workout))
+    with httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(409))) as client:
+        for attempt in range(1, 6):
+            assert work_once(cfg, client, now=attempt * 10_000)
+            assert row(cfg)["error"] == "endurain_conflict"
+            assert row(cfg)["state"] == ("failed" if attempt == 5 else "queued")
+        assert not work_once(cfg, client, now=100_000)  # failed rows are not retried
+
+
+def test_worker_survives_an_unexpected_error(monkeypatch):
+    from app.apple_health import worker
+    loads = []
+
+    def load():
+        loads.append(1)
+        if len(loads) == 1:
+            raise RuntimeError("not one of the expected types")
+
+    async def sleep(seconds):
+        if len(loads) >= 2:
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr("app.apple_health.AppleHealthSettings.load", load)
+    monkeypatch.setattr("app.apple_health.asyncio.sleep", sleep)
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(worker())
+    assert len(loads) == 2
 
 
 def test_terminal_rejection_does_not_retry_or_leak_response(cfg, workout):

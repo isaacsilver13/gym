@@ -5,6 +5,7 @@ import asyncio
 import hashlib
 import hmac
 import json
+import logging
 import os
 import sqlite3
 import time
@@ -17,6 +18,9 @@ import httpx
 
 from app.config import _setting
 from app.training import safe_url
+
+logger = logging.getLogger(__name__)
+CONFLICT_ATTEMPTS = 5
 
 
 @dataclass(frozen=True)
@@ -99,15 +103,21 @@ def enqueue(cfg, prepared):
     with closing(connect(cfg)) as db, db:
         db.execute("BEGIN IMMEDIATE")
         for source_id, digest, fit in prepared:
-            row = db.execute("SELECT digest FROM workouts WHERE source_id=?",
+            row = db.execute("SELECT digest,state,lease FROM workouts WHERE source_id=?",
                              (source_id,)).fetchone()
             now = time.time()
             if row:
                 counts["duplicates"] += 1
                 if row["digest"] != digest:
                     counts["changed"] += 1
-                    db.execute("UPDATE workouts SET changed=1, updated=? WHERE source_id=?",
-                               (now, source_id))
+                    if row["state"] in ("queued", "failed") and row["lease"] <= now:
+                        # Nothing was accepted under the old content, so send the newer export.
+                        db.execute("""UPDATE workouts SET digest=?,fit=?,state='queued',
+                            job_id=NULL,attempts=0,next_attempt=0,error=NULL,changed=0,updated=?
+                            WHERE source_id=?""", (digest, fit, now, source_id))
+                    else:  # already at Endurain (or being sent): keep it, flag for review
+                        db.execute("UPDATE workouts SET changed=1, updated=? WHERE source_id=?",
+                                   (now, source_id))
             else:
                 db.execute("""INSERT INTO workouts
                     (source_id,digest,fit,state,received,updated) VALUES (?,?,?,'queued',?,?)""",
@@ -177,6 +187,8 @@ def work_once(cfg, client=None, now=None):
             state, error = "failed", "upload_credential_rejected"
         elif 400 <= status < 500 and status not in {408, 409, 429}:
             state, error = "failed", "endurain_request_rejected"
+        elif status == 409:
+            error = "endurain_conflict"  # retried a few times, then surfaced as a failure
         else:
             error = "endurain_unavailable"
     except (httpx.HTTPError, ValueError, KeyError, TypeError):
@@ -187,6 +199,8 @@ def work_once(cfg, client=None, now=None):
     if error and state != "failed":
         attempts += 1
         delay = min(3600, 30 * 2**min(attempts, 7))
+        if error == "endurain_conflict" and attempts >= CONFLICT_ATTEMPTS:
+            state = "failed"
     with closing(connect(cfg)) as db, db:
         db.execute("""UPDATE workouts SET state=?,job_id=?,activity_ids=?,attempts=?,
             next_attempt=?,lease=0,error=?,updated=?,
@@ -207,6 +221,8 @@ async def worker():
         except (OSError, ValueError, KeyError, TypeError, sqlite3.Error):
             # Status endpoint reports configuration/storage failure. No private payload logs.
             pass
+        except Exception as exc:  # an unexpected error must not end the worker; class name only
+            logger.error("Apple Health worker error: %s", type(exc).__name__)
         await asyncio.sleep(3)
 
 

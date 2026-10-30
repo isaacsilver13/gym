@@ -43,7 +43,7 @@ export function TrainingHub() {
       if (active) setSummary(value);
     }).catch((err: unknown) => {
       if (active) setError(err instanceof ApiError && err.status === 404
-        ? "Your lifting and running sources haven't been connected yet. Your existing routines and history are available in Legacy tracker."
+        ? "Your lifting and running sources haven't been connected yet. Your existing routines and history are available under Routines."
         : "Your training summary couldn't be loaded. Please try again.");
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
