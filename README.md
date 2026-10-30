@@ -1,9 +1,9 @@
 # Gym Tracker
 
-The project now includes an **openGym + Endurain training hub** alongside the legacy tracker.
+A personal workout tracker with routine building, session logging, and progress charts. An optional **openGym + Endurain training hub** adds a combined view of lifting and running, with Apple Health running-workout imports.
 See [setup, migration, Apple Watch imports, and recovery](docs/training-integration.md).
 
-Workout routine builder and progress tracker: define N gym days per week, each with a fixed exercise list (muscle group, name, sets, rep range), then log weight/reps per session and track progress over time.
+The built-in tracker records weight and reps per exercise per session. The training hub integrates separate upstream applications; configuring those connections is optional and requires their own setup.
 
 ## Stack
 
