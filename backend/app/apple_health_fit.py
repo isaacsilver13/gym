@@ -10,6 +10,12 @@ from garmin_fit_sdk.profile import Profile
 RUN_NAMES = {"Running", "Outdoor Running", "Indoor Running", "Trail Running", "Treadmill Running",
              "Outdoor Run", "Indoor Run"}  # the "... Run" names are what Health Auto Export sends
 HR_UNITS = {"count/min": 1, "bpm": 1}  # Health Auto Export v2 sends "count/min"
+CARDIO_SPORTS = {name: "running" for name in RUN_NAMES} | {
+    "Walking": "walking", "Outdoor Walk": "walking", "Indoor Walk": "walking",
+    "Hiking": "hiking", "Cycling": "cycling", "Outdoor Cycle": "cycling",
+    "Indoor Cycle": "cycling", "Swimming": "swimming", "Pool Swim": "swimming",
+    "Open Water Swim": "swimming",
+}
 MAX_SAMPLES = 100_000
 
 
@@ -59,7 +65,8 @@ def normalize(workout):
     """Validate only supported fields and retain canonical, bounded SI values."""
     if not isinstance(workout, dict):
         raise InvalidWorkout("Invalid workout")
-    if workout.get("name") not in RUN_NAMES:
+    sport = CARDIO_SPORTS.get(workout.get("name"))
+    if sport is None:
         return None
     try:
         source_id = str(UUID(workout["id"]))
@@ -73,13 +80,21 @@ def normalize(workout):
     result = {"id": source_id, "start": start, "end": end, "duration": min(duration, elapsed),
               "utc_offset": datetime.fromisoformat(workout["end"]).utcoffset().total_seconds(),
               "indoor": workout.get("isIndoor") is True or workout.get("location") == "Indoor"
-              or workout["name"] in {"Indoor Running", "Treadmill Running", "Indoor Run"},
+              or workout["name"] in {"Indoor Running", "Treadmill Running", "Indoor Run",
+                                      "Indoor Walk", "Indoor Cycle", "Pool Swim"},
               "records": []}
-    if "distance" not in workout:
+    if sport != "running":
+        result["sport"] = sport
+        indoor_sub = {"walking": "indoor_walking", "cycling": "indoor_cycling"}.get(
+            sport, "generic")
+        result["sub_sport"] = {"Pool Swim": "lap_swimming", "Open Water Swim": "open_water"}.get(
+            workout["name"], indoor_sub if result["indoor"] else "generic")
+    if "distance" not in workout and sport == "running":
         raise InvalidWorkout("Running export requires recorded distance")
-    result["distance"] = quantity(workout["distance"], "distance",
-                                  {"m": 1, "km": 1000, "mi": 1609.344})
-    if result["distance"] > 1_000_000:
+    if "distance" in workout:
+        result["distance"] = quantity(workout["distance"], "distance",
+                                      {"m": 1, "km": 1000, "mi": 1609.344})
+    if result.get("distance", 0) > 1_000_000:
         raise InvalidWorkout("Invalid distance")
     for source, target in [("avgHeartRate", "avg_hr"), ("maxHeartRate", "max_hr")]:
         value = workout.get(source, workout.get("heartRate", {}).get(
@@ -139,7 +154,8 @@ def to_fit(workout):
     start, end = dt(workout["start"]), dt(workout["end"])
     write("file_id", type="activity", manufacturer="development", product=0,
           serial_number=int(UUID(workout["id"])) & 0xFFFFFFFF, time_created=start)
-    write("workout", sport="running", wkt_name="Apple Workout run")
+    sport = workout.get("sport", "running")
+    write("workout", sport=sport, wkt_name="Apple Workout " + sport)
     # No fabricated GPS, distance progression, splits, or timer pause events.
     for sample in workout["records"]:
         fields = {"timestamp": dt(sample["time"])}
@@ -151,8 +167,9 @@ def to_fit(workout):
             if source in sample:
                 fields[target] = sample[source]
         write("record", **fields)
-    fields = {"timestamp": end, "start_time": start, "sport": "running",
-              "sub_sport": "treadmill" if workout["indoor"] else "generic",
+    fields = {"timestamp": end, "start_time": start, "sport": sport,
+              "sub_sport": workout.get("sub_sport",
+                                       "treadmill" if workout["indoor"] else "generic"),
               "total_elapsed_time": workout["end"] - workout["start"],
               "total_timer_time": workout["duration"], "first_lap_index": 0, "num_laps": 1,
               "event": "lap", "event_type": "stop"}
