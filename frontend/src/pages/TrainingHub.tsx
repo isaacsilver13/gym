@@ -114,8 +114,8 @@ export function TrainingHub() {
         <h3>This week's activity</h3>
         {summary.activities.length === 0 && <p className="muted">No activities available for this week. Check the connections above if your workouts are missing.</p>}
         <ul className="training-activity-list">{summary.activities.map((activity) => <li key={activity.id}>
-          <div><span className={`sport-badge ${activity.sport}`}>{activity.sport === "running" ? "Run" : "Lift"}</span><strong>{activity.name}</strong><p className="muted small">{activity.local_date} · {activity.source === "opengym" ? "openGym" : "Endurain"}</p></div>
-          <div className="activity-measures">{activity.sport === "lifting" ? `${activity.working_sets} sets` : `${miles(activity.distance_meters)} mi`}
+          <div><span className={`sport-badge ${activity.sport}`}>{activity.sport === "running" ? "Run" : activity.sport === "cardio" ? "Cardio" : "Lift"}</span><strong>{activity.name}</strong><p className="muted small">{activity.local_date} · {activity.source === "opengym" ? "openGym" : "Endurain"}</p></div>
+          <div className="activity-measures">{activity.sport === "lifting" ? activity.summary_only ? "Summary only · sets unknown" : `${activity.working_sets} sets` : `${miles(activity.distance_meters)} mi`}
             <p className="muted small">{activity.sport === "running" && pace(activity.pace_seconds_per_km)}{activity.average_heart_rate != null && ` · ${Math.round(activity.average_heart_rate)} bpm`}</p>
           </div>
         </li>)}</ul>

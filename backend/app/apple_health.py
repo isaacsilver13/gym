@@ -91,6 +91,11 @@ def connect(cfg):
             lease REAL NOT NULL DEFAULT 0, error TEXT,
             changed INTEGER NOT NULL DEFAULT 0, received REAL NOT NULL, updated REAL NOT NULL
         )""")
+        columns = {r[1] for r in db.execute("PRAGMA table_info(workouts)")}
+        if "attempted" not in columns:
+            db.execute("ALTER TABLE workouts ADD COLUMN attempted INTEGER NOT NULL DEFAULT 0")
+            db.execute("UPDATE workouts SET attempted=1 "
+                       "WHERE attempts>0 OR job_id IS NOT NULL OR state!='queued'")
         db.commit()
         return db
     except Exception:
@@ -98,20 +103,28 @@ def connect(cfg):
         raise
 
 
-def enqueue(cfg, prepared):
+def enqueue(cfg, prepared, preserve_existing=False):
     counts = {"queued": 0, "duplicates": 0, "changed": 0}
     with closing(connect(cfg)) as db, db:
         db.execute("BEGIN IMMEDIATE")
         for source_id, digest, fit in prepared:
-            row = db.execute("SELECT digest,state,lease FROM workouts WHERE source_id=?",
+            row = db.execute("SELECT digest,state,lease,job_id,attempts,attempted "
+                             "FROM workouts WHERE source_id=?",
                              (source_id,)).fetchone()
             now = time.time()
             if row:
                 counts["duplicates"] += 1
+                if preserve_existing:
+                    # The AIsaac summary may omit streams present in a direct Apple export.
+                    # Same source UUID means the existing destination import owns this record.
+                    continue
                 if row["digest"] != digest:
                     counts["changed"] += 1
-                    if row["state"] in ("queued", "failed") and row["lease"] <= now:
-                        # Nothing was accepted under the old content, so send the newer export.
+                    if (row["state"] == "queued" and row["lease"] <= now
+                            and row["job_id"] is None and row["attempts"] == 0
+                            and not row["attempted"]):
+                        # Only a never-attempted upload can safely be replaced. A lost POST
+                        # response may already have created a remote job under the old key.
                         db.execute("""UPDATE workouts SET digest=?,fit=?,state='queued',
                             job_id=NULL,attempts=0,next_attempt=0,error=NULL,changed=0,updated=?
                             WHERE source_id=?""", (digest, fit, now, source_id))
@@ -148,7 +161,8 @@ def work_once(cfg, client=None, now=None):
                          (now, now)).fetchone()
         if row is None:
             return False
-        db.execute("UPDATE workouts SET lease=? WHERE source_id=?", (now + 120, row["source_id"]))
+        db.execute("UPDATE workouts SET lease=?,attempts=attempts+1,attempted=1 WHERE source_id=?",
+                   (now + 120, row["source_id"]))
     state, job_id, activity_ids = row["state"], row["job_id"], row["activity_ids"]
     error, attempts, delay = None, row["attempts"], 2
     owned_client = client is None
