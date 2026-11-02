@@ -1,4 +1,4 @@
-﻿"""aisaac apple_workouts (stub: the table is owned by aisaac's gym module)
+"""aisaac apple_workouts (stub: the table is owned by aisaac's gym module)
 
 Revision ID: a7c3e91d5b20
 Revises: 1ef14c36cb4b
