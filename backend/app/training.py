@@ -16,6 +16,10 @@ from app.config import _setting, load_settings
 from app.training_tokens import EndurainSession
 
 RUN_TYPES = {1: "Run", 2: "Trail run", 3: "Virtual run", 34: "Track run", 40: "Treadmill"}
+CARDIO_TYPES = RUN_TYPES | {4: "Ride", 5: "Gravel ride", 6: "MTB ride", 7: "Virtual ride",
+                           8: "Lap swimming", 9: "Open water swimming", 11: "Walk", 12: "Hike",
+                           27: "Commuting ride", 28: "Indoor ride", 29: "Mixed surface ride",
+                           31: "Indoor walking", 35: "E-Bike ride", 36: "E-Mountain Bike ride"}
 
 
 @dataclass(frozen=True)
@@ -123,7 +127,7 @@ def lifting_activities(state: dict, start: datetime, end: datetime) -> list[dict
                 if not warm and completed:
                     sets += completed
                     exercise_ids.add(str(entry.get("id", "")))
-        if not sets:
+        if not sets and not w.get("summary_only"):
             continue
         finish = _instant(w.get("end"))
         duration = (finish - stamp).total_seconds() if finish and finish >= stamp else None
@@ -133,6 +137,7 @@ def lifting_activities(state: dict, start: datetime, end: datetime) -> list[dict
             "started_at": stamp.isoformat(),
             "local_date": stamp.astimezone(start.tzinfo).date().isoformat(),
             "duration_seconds": duration, "working_sets": sets,
+            "summary_only": bool(w.get("summary_only")),
             "exercise_count": len(exercise_ids),
         })
         seen.add(wid)
@@ -146,7 +151,7 @@ def running_activities(rows: list[dict], user_id: str, start: datetime, end: dat
     for row in rows:
         if str(row.get("user_id")) != user_id:
             raise ValueError("Profile mismatch")
-        if row.get("is_hidden") or row.get("activity_type") not in RUN_TYPES:
+        if row.get("is_hidden") or row.get("activity_type") not in CARDIO_TYPES:
             continue
         rid = str(row.get("id", ""))
         stamp = _instant(row.get("start_time"))
@@ -163,9 +168,10 @@ def running_activities(rows: list[dict], user_id: str, start: datetime, end: dat
         # Unknown active time stays unknown: elapsed time includes pauses.
         pace = timer / (distance / 1000) if distance and timer is not None else None
         activities.append({
-            "id": "endurain:" + rid, "source": "endurain", "sport": "running",
-            "name": str(row.get("name") or RUN_TYPES[row["activity_type"]]),
-            "run_type": RUN_TYPES[row["activity_type"]], "started_at": stamp.isoformat(),
+            "id": "endurain:" + rid, "source": "endurain",
+            "sport": "running" if row["activity_type"] in RUN_TYPES else "cardio",
+            "name": str(row.get("name") or CARDIO_TYPES[row["activity_type"]]),
+            "run_type": CARDIO_TYPES[row["activity_type"]], "started_at": stamp.isoformat(),
             "local_date": stamp.astimezone(start.tzinfo).date().isoformat(),
             "distance_meters": distance, "duration_seconds": timer,
             "elapsed_seconds": elapsed, "pace_seconds_per_km": pace,
@@ -264,6 +270,8 @@ def build_summary(cfg: TrainingSettings, anchor: date | None = None, client=None
         "working_sets": sum(a["working_sets"] for a in lifts)
         if sources["opengym"]["state"] == "ok" else None,
         "runs": len(runs) if sources["endurain"]["state"] == "ok" else None,
+        "cardio_sessions": sum(a["sport"] == "cardio" for a in activities)
+        if sources["endurain"]["state"] == "ok" else None,
         "running_distance_meters": sum(distance_values)
         if sources["endurain"]["state"] == "ok" and len(distance_values) == len(runs) else None,
         "running_timer_seconds": sum(duration_values)

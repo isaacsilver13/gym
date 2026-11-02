@@ -26,6 +26,9 @@ services:
       ASSISTANT_USERNAME: ${TRAINING_USERNAME:-}
       APPLE_HEALTH_CONFIG_FILE: ${APPLE_HEALTH_CONFIG_FILE:-}
       APPLE_HEALTH_QUEUE: /data/apple-health.sqlite
+      AISAAC_SYNC_URL: ${AISAAC_SYNC_URL:-}
+      AISAAC_SYNC_TOKEN: ${AISAAC_SYNC_TOKEN:-}
+      AISAAC_OWNER: ${AISAAC_OWNER:-}
     volumes:
       - hub-data:/data
       - ../runtime/connections:/connections
