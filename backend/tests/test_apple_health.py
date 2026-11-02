@@ -176,7 +176,7 @@ def test_transient_retry_stable_key_and_changed_export(cfg, workout):
     assert keys[0] == keys[1]
     workout["distance"]["qty"] = 4
     assert enqueue(cfg, prepared(workout)) == {"queued": 0, "duplicates": 1, "changed": 1}
-    assert queue_status(cfg)["changed"] == 0  # still unsent, so the newer export replaced it
+    assert queue_status(cfg)["changed"] == 1  # an attempted POST may already exist remotely
     with pytest.raises(ValueError, match="another account"):
         queue_status(replace(cfg, endurain_user_id="8"))
 
@@ -221,7 +221,7 @@ def test_changed_export_replaces_a_row_that_has_not_been_sent(cfg, workout):
     assert new["digest"] != old["digest"] and new["changed"] == 0 and new["state"] == "queued"
 
 
-def test_changed_export_revives_a_failed_row_with_a_fresh_job(cfg, workout):
+def test_changed_export_preserves_failed_job_for_reconciliation(cfg, workout):
     enqueue(cfg, prepared(workout))
     set_row(cfg, state="failed", error="endurain_ingestion_failed", job_id="old-job", attempts=3)
     enqueue(cfg, prepared(workout))  # same content: stays failed
@@ -230,7 +230,8 @@ def test_changed_export_revives_a_failed_row_with_a_fresh_job(cfg, workout):
     enqueue(cfg, prepared(workout))
     fresh = row(cfg)
     assert (fresh["state"], fresh["job_id"], fresh["error"], fresh["attempts"]) == (
-        "queued", None, None, 0)
+        "failed", "old-job", "endurain_ingestion_failed", 3)
+    assert fresh["changed"] == 1
 
 
 @pytest.mark.parametrize("state", ["completed", "processing"])

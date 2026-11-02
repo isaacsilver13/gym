@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.aisaac_sync import worker as sync_worker
 from app.api import apple_health, assistant, auth, exercises, health, routines, training
 from app.apple_health import worker
 from app.config import load_settings
@@ -19,10 +20,14 @@ install_error_log()
 @asynccontextmanager
 async def lifespan(app):
     task = asyncio.create_task(worker())
+    sync_task = asyncio.create_task(sync_worker())
     yield
     task.cancel()
+    sync_task.cancel()
     with suppress(asyncio.CancelledError):
         await task
+    with suppress(asyncio.CancelledError):
+        await sync_task
 
 
 app = FastAPI(title="Gym Tracker API", version="0.1.0", lifespan=lifespan)

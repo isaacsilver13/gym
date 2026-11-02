@@ -68,7 +68,8 @@ export interface RoutineInput {
 export interface TrainingActivity {
   id: string;
   source: "opengym" | "endurain";
-  sport: "lifting" | "running";
+  sport: "lifting" | "running" | "cardio";
+  summary_only?: boolean;
   name: string;
   started_at: string;
   local_date: string;
@@ -94,6 +95,7 @@ export interface TrainingSummary {
   totals: {
     lifting_sessions: number | null;
     working_sets: number | null;
+    cardio_sessions?: number | null;
     runs: number | null;
     running_distance_meters: number | null;
     running_timer_seconds: number | null;
